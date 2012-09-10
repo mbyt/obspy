@@ -31,32 +31,98 @@
     <!-- MAIN CONTENT -->
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
-        <h3>Welcome to GitHub Pages.</h3>
+        <p>ObsPy is an open-source project dedicated to provide a <strong>Python framework for processing seismological</strong> data. It provides parsers for common file formats and seismological signal processing routines which allow the manipulation of seismological time series (see <a href="http://www.seismosoc.org/publications/SRL/SRL_81/srl_81-3_es/">Beyreuther et al. 2010</a>, <a href="http://www.annalsofgeophysics.eu/index.php/annals/article/view/4838">Megies et al. 2011</a>).</p>
 
-<p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here using GitHub Flavored Markdown, select a template crafted by a designer, and publish. After your page is generated, you can check out the new branch:</p>
+<p>The goal of the ObsPy project is to facilitate <strong>rapid application development for seismology</strong>.</p>
 
-<pre><code>$ cd your_repo_root/repo_name
-$ git fetch origin
-$ git checkout gh-pages
-</code></pre>
+<h2>Getting Started</h2>
 
-<p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
+<p>The <a href="http://gallery.obspy.org">ObsPy Gallery</a> and its related <a href="http://tutorial.obspy.org">ObsPy Tutorial</a> are maybe the best point to get a first impression of what ObsPy is all about. The tutorial is a collection of short example programs with explanations and program output. </p>
 
-<h3>Designer Templates</h3>
+<h2>Installing ObsPy</h2>
 
-<p>We've crafted some handsome templates for you to use. Go ahead and continue to layouts to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved if it remained markdown format.</p>
+<p>ObsPy is currently <a href="http://tests.obspy.org">running and tested</a> on Linux (32 and 64 bit), Windows XP/Vista/7 (32 bit and/or 64 bit) and Mac OS X (32 and 64 bit Intel and untested support for 32 and 64 bit PPC).</p>
 
-<h3>Rather Drive Stick?</h3>
+<p>These notes describe installing ObsPy on the following platforms:</p>
 
-<p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator written by our own Tom Preston-Werner. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
+<ul>
+<li>Linux</li>
+<li>Mac</li>
+<li>Windows</li>
+<li>FreeBSD</li>
+</ul><h2><a href="http://docs.obspy.org">Documentation</a></h2>
 
-<h3>Authors and Contributors</h3>
+<p>The functionality is provided through the following packages:</p>
 
-<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
+<h3>General packages:</h3>
 
-<h3>Support or Contact</h3>
+<ul>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.core.html">obspy.core</a> - ObsPy core package, glues the single obspy packages together</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.imaging.html">obspy.imaging</a> - Imaging spectograms, beachballs and waveforms</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.realtime.html">obspy.realtime</a> - Extends the !ObsPy core classes with real time functionalities (''experimental'')</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.signal.html">obspy.signal</a> - Filters, triggers, instrument correction, rotation, array analysis, beamforming</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.taup.html">obspy.taup</a> - Calculates and visualizes travel times</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.xseed.html">obspy.xseed</a> - Converter for Dataless SEED, <a href="http://adsabs.harvard.edu/abs/2004AGUFMSF31B..03T">XML-SEED</a> and SEED RESP files</li>
+</ul><h3>Waveform import/export plug-ins:</h3>
 
-<p>Having trouble with Pages? Check out the documentation at <a href="http://help.github.com/pages">http://help.github.com/pages</a> or contact <a href="mailto:support@github.com">support@github.com</a> and we’ll help you sort it out.</p>
+<ul>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.datamark.html">obspy.datamark</a> - DATAMARK read support ("experimental")</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.gse2.html">obspy.gse2</a> - GSE2 and GSE1 read and write support</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.mseed.html">obspy.mseed</a> - MiniSEED read and write support</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.sac.html">obspy.sac</a> - SAC read and write support</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.seisan.html">obspy.seisan</a> - SEISAN read support</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.seg2.html">obspy.seg2</a> - SEG2 read support ("experimental")</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.segy.html">obspy.segy</a> - SEGY read and write support</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.sh.html">obspy.sh</a> - Q and ASC read and write support (file formats of <a href="http://www.seismic-handler.org">SeismicHandler</a>)</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.wav.html">obspy.wav</a> - WAV (audio) read and write support</li>
+</ul><h3>Database or Web service access clients:</h3>
+
+<ul>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.arclink.html">obspy.arclink</a> - <a href="http://www.webdc.eu">ArcLink/WebDC</a> request client</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.earthworm.html">obspy.earthworm</a> - <a href="http://folkworm.ceri.memphis.edu/ew-doc/">Earthworm</a> request client ("experimental")</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.iris.html">obspy.iris</a> - <a href="http://www.iris.edu/ws">IRIS DMC Core Web services</a> request client</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.neries.html">obspy.neries</a> - <a href="http://www.seismicportal.eu/jetspeed/portal/">NERIES Seismic Data Portal</a> request client</li>
+<li>
+<a href="http://docs.obspy.org/packages/obspy.seishub.html">obspy.seishub</a> - <a href="http://www.seishub.org">SeisHub</a> database client</li>
+</ul><h3>Additional Documentation</h3>
+
+<ol>
+<li>Moritz Beyreuther, Robert Barsch, Lion Krischer, Tobias Megies, Yannik Behr and Joachim Wassermann (2010), <a href="http://www.seismosoc.org/publications/SRL/SRL_81/srl_81-3_es/">ObsPy: A Python Toolbox for Seismology</a>, SRL, 81(3), 530-533.</li>
+<li>Tobias Megies, Moritz Beyreuther, Robert Barsch, Lion Krischer, Joachim Wassermann (2011), <a href="http://www.annalsofgeophysics.eu/index.php/annals/article/view/4838">ObsPy – What can it do for data centers and observatories?</a> Annals Of Geophysics, 54(1), 47-58, doi:10.4401/ag-4838.</li>
+</ol><h2>Mailing List</h2>
+
+<p>If you are using ObsPy we strongly recommend for you to join the <a href="http://lists.obspy.org/listinfo">obspy-users mailing list</a>. This list will be the place where new additions, important changes and bug fixes will be announced. The list can also be used to contact other ObsPy users for open discussions.</p>
+
+<h2>Developer Corner</h2>
+
+<ul>
+<li><a href="http://docs.obspy.org/coding_style.html">Style Guide</a></li>
+<li>Best Practices</li>
+<li>Performance Tips <a href="http://wiki.python.org/moin/PythonSpeed/PerformanceTips">Python</a>, <a href="http://www.scipy.org/Cookbook/Ctypes">NumPy and ctypes</a>, <a href="http://www.scipy.org/PerformancePython">SciPy</a>, <a href="http://www.tramy.us/numpybook.pdf">NumPy Book</a>
+</li>
+<li>Testing &amp; Debugging, Sphinx Documentation</li>
+<li><a href="http://lukeplant.me.uk/blog/posts/docs-or-it-doesnt-exist/">Docs or doesn't exist!</a></li>
+<li>BrainStorming</li>
+</ul>
       </section>
     </div>
 
