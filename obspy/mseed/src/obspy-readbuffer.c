@@ -19,7 +19,6 @@
 // Linkable container of MSRecords
 typedef struct LinkedRecordList_s {
     struct MSRecord_s      *record;       // This record
-    struct LinkedRecordList_s  *previous; // The previous record container
     struct LinkedRecordList_s  *next;     // The next record container
 }
 LinkedRecordList;
@@ -225,14 +224,9 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
             // Append to linked record list if one exists.
             recordCurrent->record = msr;
             recordCurrent->next = NULL;
-            if ( recordHead != NULL ) {
+            if ( recordHead == NULL ) {
                 //recordPrevious->next = recordCurrent;
-                recordCurrent->previous = recordPrevious;
-            }
-            // Otherwise create a new one.
-            else {
                 recordHead = recordCurrent;
-                recordCurrent->previous = NULL;
             }
 
         // Check if the ID of the record is already available and if not create a
@@ -325,7 +319,6 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
              lastgap <= hptimetol && lastgap >= nhptimetol &&
              segmentCurrent->timing_qual == timing_qual &&
              segmentCurrent->calibration_type == calibration_type) {
-            recordCurrent->previous = segmentCurrent->lastRecord;
             segmentCurrent->lastRecord = segmentCurrent->lastRecord->next = recordCurrent;
             segmentCurrent->samplecnt += recordCurrent->record->samplecnt;
             segmentCurrent->endtime = msr_endtime(recordCurrent->record);
@@ -353,7 +346,6 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
             segmentCurrent->timing_qual = timing_qual;
             segmentCurrent->calibration_type = calibration_type;
             segmentCurrent->firstRecord = segmentCurrent->lastRecord = recordCurrent;
-            recordCurrent->previous = NULL;
             if (recordCurrent != recordHead) {
                 recordPrevious->next = NULL;
             }
