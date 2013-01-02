@@ -14,7 +14,7 @@
 #include <ctype.h>
 
 #include "libmseed/libmseed.h"
-#include "libmseed/unpackdata.h"
+
 
 // Linkable container of MSRecords
 typedef struct LinkedRecordList_s {
@@ -169,23 +169,17 @@ lil_free(LinkedIDList * lil)
     lil = NULL;
 }
 
-
 // Function that reads from a MiniSEED binary file from a char buffer and
 // returns a LinkedIDList.
 LinkedIDList *
 readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
-                 unpack_data, int reclen, flag verbose, flag details,
-                 long (*allocData) (int, char))
+        unpack_data, int reclen, flag verbose, flag details,
+        long (*allocData) (int, char))
 {
-    int retcode = 0;
-    int retval = 0;
-    flag swapflag = 0;
-
     // current offset of mseed char pointer
-    int offset = 0;
-
-    // Unpack without reading the data first
-    flag dataflag = 0;
+    int64_t offset = 0;
+    /* TODO: change definition of readMSEEDBuffer */
+    int64_t buflen64 = buflen;
 
     // the timing_qual of BLK 1001
     uint8_t timing_qual = 0xFF;
@@ -207,106 +201,50 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
     LinkedRecordList *recordPrevious = NULL;
     LinkedRecordList *recordCurrent = NULL;
     int datasize;
-
-
-    //
-    // Read all records and save them in a linked list.
-    //
     int record_count = 0;
-    while (offset < buflen) {
+
+
+    /* Loop over all selected records in recbuf */
+    while (offset < buflen64) {
+        verbose = 0;
         msr = msr_init(NULL);
-        retcode = msr_parse ( (mseed+offset), buflen, &msr, reclen, dataflag, verbose);
-        if ( ! (retcode == MS_NOERROR)) {
+        if (msr_parse_selection(mseed, buflen64, &offset, &msr, reclen,
+                selections, unpack_data, verbose)) {
             msr_free(&msr);
-            break;
+            /* Only print error if offset is still within buffer length */
+            if (verbose && offset < buflen64)
+                ms_log(2, "Error parsing record at offset %lld0",
+                        (long long int) offset);
         }
-
-        // Test against selections if supplied
-        if ( selections ) {
-            char srcname[50];
-            hptime_t endtime;
-            msr_srcname (msr, srcname, 1);
-            endtime = msr_endtime (msr);
-            if ( ms_matchselect (selections, srcname, msr->starttime, endtime, NULL) == NULL ) {
-                // Add the record length for the next iteration
-                offset += msr->reclen;
-                // Free record.
-                msr_free(&msr);
-                continue;
-            }
-        }
-        record_count += 1;
-
-        recordCurrent = lrl_init ();
-        // Append to linked record list if one exists.
-        if ( recordHead != NULL ) {
-            recordPrevious->next = recordCurrent;
-            recordCurrent->previous = recordPrevious;
+        else { /* Successfully found and parsed record */
+            record_count++;
+            /* Increment offset in buffer for subsequent call to msr_parse_selection() */
+            offset += msr->reclen;
+            /* Do something with the record */
+            recordCurrent = lrl_init ();
+            // Append to linked record list if one exists.
+            recordCurrent->record = msr;
             recordCurrent->next = NULL;
-            recordPrevious = recordCurrent;
-        }
-        // Otherwise create a new one.
-        else {
-            recordHead = recordCurrent;
-            recordCurrent->previous = NULL;
-            recordPrevious = recordCurrent;
-        }
-        recordCurrent->record = msr;
-
-        // Determine the byteorder swapflag only for the very first record. The byteorder
-        // should not change within the file.
-        // XXX: Maybe check for every record?
-        if (swapflag <= 0) {
-            // Returns 0 if the host is little endian, otherwise 1.
-            flag bigendianhost = ms_bigendianhost();
-            // Set the swapbyteflag if it is needed.
-            if ( msr->Blkt1000 != 0) {
-                /* If BE host and LE data need swapping */
-                if ( bigendianhost && msr->byteorder == 0 ) {
-                    swapflag = 1;
-                }
-                /* If LE host and BE data (or bad byte order value) need swapping */
-                if ( !bigendianhost && msr->byteorder > 0 ) {
-                    swapflag = 1;
-                }
+            if ( recordHead != NULL ) {
+                //recordPrevious->next = recordCurrent;
+                recordCurrent->previous = recordPrevious;
             }
-        }
+            // Otherwise create a new one.
+            else {
+                recordHead = recordCurrent;
+                recordCurrent->previous = NULL;
+            }
 
-        // Actually unpack the data if the flag is not set.
-        if (unpack_data != 0) {
-            retval = msr_unpack_data (msr, swapflag, verbose);
-        }
-
-        if ( retval > 0 ) {
-            msr->numsamples = retval;
-        }
-
-        // Add the record length for the next iteration
-        offset += msr->reclen;
-    }
-
-    // Return empty id list if no records could be found.
-    if (record_count == 0) {
-        idListHead = lil_init();
-        return idListHead;
-    }
-
-
-    // All records that match the selection are now stored in a LinkedRecordList
-    // that starts at recordHead. The next step is to sort them by matching ids
-    // and then by time.
-    recordCurrent = recordHead;
-    while (recordCurrent != NULL) {
         // Check if the ID of the record is already available and if not create a
         // new one.
         // Start with the last id as it is most likely to be the correct one.
         idListCurrent = idListLast;
         while (idListCurrent != NULL) {
             if (strcmp(idListCurrent->network, recordCurrent->record->network) == 0 &&
-                strcmp(idListCurrent->station, recordCurrent->record->station) == 0 &&
-                strcmp(idListCurrent->location, recordCurrent->record->location) == 0 &&
-                strcmp(idListCurrent->channel, recordCurrent->record->channel) == 0 &&
-                idListCurrent->dataquality == recordCurrent->record->dataquality) {
+                    strcmp(idListCurrent->station, recordCurrent->record->station) == 0 &&
+                    strcmp(idListCurrent->location, recordCurrent->record->location) == 0 &&
+                    strcmp(idListCurrent->channel, recordCurrent->record->channel) == 0 &&
+                    idListCurrent->dataquality == recordCurrent->record->dataquality) {
                 break;
             }
             else {
@@ -333,6 +271,7 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
             strcpy(idListCurrent->channel, recordCurrent->record->channel);
             idListCurrent->dataquality = recordCurrent->record->dataquality;
         }
+
 
         // Now check if the current record fits exactly to the end of the last
         // segment of the current id. If not create a new segment. Therefore
@@ -415,12 +354,19 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
             segmentCurrent->calibration_type = calibration_type;
             segmentCurrent->firstRecord = segmentCurrent->lastRecord = recordCurrent;
             recordCurrent->previous = NULL;
+            if (recordCurrent != recordHead) {
+                recordPrevious->next = NULL;
+            }
         }
-        recordPrevious = recordCurrent->next;
-        recordCurrent->next = NULL;
-        recordCurrent = recordPrevious;
-    }
+      recordPrevious = recordCurrent;
 
+    }
+    }
+    // Return empty id list if no records could be found.
+    if (record_count == 0) {
+        idListHead = lil_init();
+        return idListHead;
+    }
 
     // Now loop over all segments, combine the records and free the msr
     // structures.
@@ -455,5 +401,6 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
         }
         idListCurrent = idListCurrent->next;
     }
+
     return idListHead;
 }
