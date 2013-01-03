@@ -189,6 +189,39 @@ lil_free(LinkedIDList * lil)
     lil = NULL;
 }
 
+static void copySegmentData(ContinuousSegment * contseg, flag unpack_data,
+    long (*allocData) (int, char)) {
+    int size;
+    long offset;
+    LinkedRecordList * reclst = NULL;
+
+    if (contseg != NULL ) {
+        if (contseg->datasamples) {
+            free(contseg->datasamples);
+        }
+        // Allocate data via a callback function.
+        if (unpack_data != 0) {
+            contseg->datasamples = (void *) allocData(contseg->samplecnt,
+                    contseg->sampletype);
+        }
+
+        // Loop over all records, write the data to the buffer and free the msr structures.
+        reclst = contseg->firstRecord;
+        offset = (long) (contseg->datasamples);
+        while (reclst != NULL ) {
+            size = reclst->record->samplecnt
+                    * ms_samplesize(reclst->record->sampletype);
+            memcpy((void *) offset, reclst->record->datasamples,
+                    size);
+            // Free the record.
+            msr_free(&(reclst->record));
+            // Increase the data_offset and the record.
+            offset += (long) size;
+            reclst = reclst->next;
+        }
+    }
+}
+
 // Function that reads from a MiniSEED binary file from a char buffer and
 // returns a LinkedIDList.
 LinkedIDList *
@@ -216,11 +249,8 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
     hptime_t lastgap = 0;
     hptime_t hptimetol = 0;
     hptime_t nhptimetol = 0;
-    long data_offset;
     LinkedRecordList *recordHead = NULL;
-    LinkedRecordList *recordPrevious = NULL;
     LinkedRecordList *recordCurrent = NULL;
-    int datasize;
     int record_count = 0;
 
 
@@ -342,12 +372,12 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
             segmentCurrent->lastRecord = segmentCurrent->lastRecord->next = recordCurrent;
             segmentCurrent->samplecnt += recordCurrent->record->samplecnt;
             segmentCurrent->endtime = msr_endtime(recordCurrent->record);
-            if (recordCurrent != recordHead) {
-                recordPrevious->next = recordCurrent;
-            }
         }
         // Otherwise create a new segment and add the current record.
         else {
+            // the last contiguous segment of the current can now be copied and
+            // the corresponding records can be freed already
+            copySegmentData(idListCurrent->lastSegment, unpack_data, allocData);
             segmentCurrent = seg_init();
             segmentCurrent->previous = idListCurrent->lastSegment;
             if (idListCurrent->lastSegment != NULL) {
@@ -370,8 +400,6 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
             segmentCurrent->calibration_type = calibration_type;
             segmentCurrent->firstRecord = segmentCurrent->lastRecord = recordCurrent;
         }
-      recordPrevious = recordCurrent;
-
     }
     }
     // Return empty id list if no records could be found.
@@ -379,40 +407,11 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
         idListHead = lil_init();
         return idListHead;
     }
-
-    // Now loop over all segments, combine the records and free the msr
-    // structures.
+    // copy data of all remaining segments
     idListCurrent = idListHead;
-    while (idListCurrent != NULL)
-    {
-        segmentCurrent = idListCurrent->firstSegment;
-
-        while (segmentCurrent != NULL) {
-            if (segmentCurrent->datasamples) {
-                free(segmentCurrent->datasamples);
-            }
-            // Allocate data via a callback function.
-            if (unpack_data != 0) {
-                segmentCurrent->datasamples = (void *) allocData(segmentCurrent->samplecnt, segmentCurrent->sampletype);
-            }
-
-            // Loop over all records, write the data to the buffer and free the msr structures.
-            recordCurrent = segmentCurrent->firstRecord;
-            data_offset = (long)(segmentCurrent->datasamples);
-            while (recordCurrent != NULL) {
-                datasize = recordCurrent->record->samplecnt * ms_samplesize(recordCurrent->record->sampletype);
-                memcpy((void *)data_offset, recordCurrent->record->datasamples, datasize);
-                // Free the record.
-                msr_free(&(recordCurrent->record));
-                // Increase the data_offset and the record.
-                data_offset += (long)datasize;
-                recordCurrent = recordCurrent->next;
-            }
-
-            segmentCurrent = segmentCurrent->next;
-        }
+    while (idListCurrent != NULL) {
+        copySegmentData(idListCurrent->lastSegment, unpack_data, allocData);
         idListCurrent = idListCurrent->next;
     }
-
     return idListHead;
 }
