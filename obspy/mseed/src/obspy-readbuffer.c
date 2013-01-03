@@ -249,7 +249,6 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
     hptime_t lastgap = 0;
     hptime_t hptimetol = 0;
     hptime_t nhptimetol = 0;
-    LinkedRecordList *recordHead = NULL;
     LinkedRecordList *recordCurrent = NULL;
     int record_count = 0;
 
@@ -265,19 +264,17 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
             if (verbose && offset < buflen64)
                 ms_log(2, "Error parsing record at offset %lld0",
                         (long long int) offset);
+            continue;
         }
-        else { /* Successfully found and parsed record */
-            record_count++;
-            /* Increment offset in buffer for subsequent call to msr_parse_selection() */
-            offset += msr->reclen;
-            /* Do something with the record */
-            recordCurrent = lrl_init ();
-            // Append to linked record list if one exists.
-            recordCurrent->record = msr;
-            recordCurrent->next = NULL;
-            if ( recordHead == NULL ) {
-                recordHead = recordCurrent;
-            }
+        /* Successfully found and parsed record */
+        record_count++;
+        /* Increment offset in buffer for subsequent call to msr_parse_selection() */
+        offset += msr->reclen;
+        /* Do something with the record */
+        recordCurrent = lrl_init ();
+        // Append to linked record list if one exists.
+        recordCurrent->record = msr;
+        recordCurrent->next = NULL;
 
         // Check if the ID of the record is already available and if not create a
         // new one.
@@ -400,7 +397,6 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
             segmentCurrent->calibration_type = calibration_type;
             segmentCurrent->firstRecord = segmentCurrent->lastRecord = recordCurrent;
         }
-    }
     }
     // Return empty id list if no records could be found.
     if (record_count == 0) {
