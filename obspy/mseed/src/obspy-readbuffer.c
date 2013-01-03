@@ -5,6 +5,27 @@
  *
  * Parts are copied from tracelist.c and unpack.c from libmseed by Chad
  * Trabant
+ *
+ * There were two reasons why we chose to write our own C code using lower
+ * level libmseed functions:
+ * 
+ * 1. ms_readtracelist() and ms_readtraces() only work with files and not
+ * memory buffers. ObsPy only passes memory buffers to libmseed - we do this
+ * even for files so we that we can have a unified handling whether the
+ * MiniSEED data comes from the filesystem, internet or some other source. The
+ * two routines listed above could probably be adopted quite easily to also do
+ * this. <update> This issue is now resolved by the use of
+ * msr_parse_selection </update>.
+ * 
+ * 2. realloc() is really, really slow on some Windows platforms to the point
+ * of becoming unusable after repeated calls. I think both the aforementioned
+ * functions use it to continuously grow the data array when combining
+ * records. This works just fine on Unix so it is a non-issue in most cases
+ * but we would like to be able to support Windows. In our C code we first
+ * read all records, then sort them, and then allocate a chunk of memory for
+ * each continuous trace. This is also fast on Windows at the expense of
+ * temporarily doubling the memory consumption.
+ *
  ***************************************************************************/
 
 #include <stdio.h>
@@ -225,7 +246,6 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
             recordCurrent->record = msr;
             recordCurrent->next = NULL;
             if ( recordHead == NULL ) {
-                //recordPrevious->next = recordCurrent;
                 recordHead = recordCurrent;
             }
 
@@ -322,6 +342,9 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
             segmentCurrent->lastRecord = segmentCurrent->lastRecord->next = recordCurrent;
             segmentCurrent->samplecnt += recordCurrent->record->samplecnt;
             segmentCurrent->endtime = msr_endtime(recordCurrent->record);
+            if (recordCurrent != recordHead) {
+                recordPrevious->next = recordCurrent;
+            }
         }
         // Otherwise create a new segment and add the current record.
         else {
@@ -346,9 +369,6 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
             segmentCurrent->timing_qual = timing_qual;
             segmentCurrent->calibration_type = calibration_type;
             segmentCurrent->firstRecord = segmentCurrent->lastRecord = recordCurrent;
-            if (recordCurrent != recordHead) {
-                recordPrevious->next = NULL;
-            }
         }
       recordPrevious = recordCurrent;
 
