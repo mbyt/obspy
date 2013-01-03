@@ -80,18 +80,8 @@ typedef struct LinkedIDList_s {
 }
 LinkedIDList;
 
-
-// Forward declarations
-LinkedIDList * lil_init(void);
-LinkedRecordList * lrl_init (void);
-ContinuousSegment * seg_init(void);
-void lrl_free(LinkedRecordList * lrl);
-void seg_free(ContinuousSegment * seg);
-void lil_free(LinkedIDList * lil);
-
-
 // Init function for the LinkedIDList
-LinkedIDList *
+static LinkedIDList *
 lil_init(void)
 {
     // Allocate 0 initialized memory.
@@ -105,7 +95,7 @@ lil_init(void)
 }
 
 // Init function for the LinkedRecordList
-LinkedRecordList *
+static LinkedRecordList *
 lrl_init (void)
 {
     // Allocate 0 initialized memory.
@@ -119,7 +109,7 @@ lrl_init (void)
 }
 
 // Init a Segment with a linked record list.
-ContinuousSegment *
+static ContinuousSegment *
 seg_init(void)
 {
     ContinuousSegment *seg = (ContinuousSegment *) malloc (sizeof(ContinuousSegment));
@@ -133,7 +123,7 @@ seg_init(void)
 
 // Frees a LinkedRecordList. The given Record is assumed to be the head of the
 // list.
-void
+static void
 lrl_free(LinkedRecordList * lrl)
 {
     LinkedRecordList * next;
@@ -151,7 +141,7 @@ lrl_free(LinkedRecordList * lrl)
 
 // Frees a ContinuousSegment and all structures associated with it.
 // The given segment is supposed to be the head of the linked list.
-void
+static void
 seg_free(ContinuousSegment * seg)
 {
     ContinuousSegment * next;
@@ -189,8 +179,9 @@ lil_free(LinkedIDList * lil)
     lil = NULL;
 }
 
-static void copySegmentData(ContinuousSegment * contseg, flag unpack_data,
-    long (*allocData) (int, char)) {
+static void
+copySegmentData(ContinuousSegment * const contseg,
+    const flag unpack_data, long (* const allocData) (int, char)) {
     int size;
     long offset;
     LinkedRecordList * reclst = NULL;
@@ -225,9 +216,9 @@ static void copySegmentData(ContinuousSegment * contseg, flag unpack_data,
 // Function that reads from a MiniSEED binary file from a char buffer and
 // returns a LinkedIDList.
 LinkedIDList *
-readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
-        unpack_data, int reclen, flag verbose, flag details,
-        long (*allocData) (int, char))
+readMSEEDBuffer (const char *mseed, const int buflen, Selections *selections,
+        const flag unpack_data, const int reclen, const flag verbose,
+        const flag details, long (* const allocData) (int, char))
 {
     // current offset of mseed char pointer
     int64_t offset = 0;
@@ -255,7 +246,6 @@ readMSEEDBuffer (char *mseed, int buflen, Selections *selections, flag
 
     /* Loop over all selected records in recbuf */
     while (offset < buflen64) {
-        verbose = 0;
         msr = msr_init(NULL);
         if (msr_parse_selection(mseed, buflen64, &offset, &msr, reclen,
                 selections, unpack_data, verbose)) {
