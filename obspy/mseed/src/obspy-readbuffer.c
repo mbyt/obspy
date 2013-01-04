@@ -17,7 +17,7 @@
  * this. <update> This issue is now resolved by the use of
  * msr_parse_selection </update>.
  * 
- * 2. realloc() is really, really slow on some Windows platforms to the point
+ * 2. realloc() is really slow on some Windows platforms [1] to the point
  * of becoming unusable after repeated calls. I think both the aforementioned
  * functions use it to continuously grow the data array when combining
  * records. This works just fine on Unix so it is a non-issue in most cases
@@ -26,6 +26,7 @@
  * each continuous trace. This is also fast on Windows at the expense of
  * temporarily doubling the memory consumption.
  *
+ * [1] http://blog.kowalczyk.info/article/2be/realloc-on-Windows-vs-Linux.html
  ***************************************************************************/
 
 #include <stdio.h>
