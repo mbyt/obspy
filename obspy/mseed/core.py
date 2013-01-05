@@ -5,7 +5,8 @@ MSEED bindings to ObsPy core module.
 
 from headers import clibmseed, ENCODINGS, HPTMODULUS, SAMPLETYPE, DATATYPES, \
     SAMPLESIZES, VALID_RECORD_LENGTHS, HPTERROR, SelectTime, Selections, \
-    blkt_1001_s, VALID_CONTROL_HEADERS, SEED_CONTROL_HEADERS
+    blkt_1001_s, VALID_CONTROL_HEADERS, SEED_CONTROL_HEADERS, BField, \
+    BLKT_MAP
 from itertools import izip
 from math import log
 from obspy import Stream, Trace, UTCDateTime
@@ -91,7 +92,7 @@ def isMSEED(filename):
 
 def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
               sourcename=None, reclen=None, recinfo=True, details=False,
-              **kwargs):
+              monitor=[], **kwargs):
     """
     Reads a Mini-SEED file and returns a Stream object.
 
@@ -134,6 +135,7 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
         information: 1 == Step Calibration, 2 == Sine Calibration, 3 ==
         Pseudo-random Calibration, 4 == Generic Calibration and -2 ==
         Calibration Abort.
+    :param monitor:
 
     .. rubric:: Example
 
@@ -266,8 +268,18 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
     # it hopefully works on 32 and 64 bit systems.
     allocData = C.CFUNCTYPE(C.c_long, C.c_int, C.c_char)(allocate_data)
 
+    # monitor
+    bf = (BField * len(monitor))()
+    for i, m in enumerate(monitor):
+        name, field = [int(_) for _ in m.split('->')]
+        bf[i].blkt_name = name
+        dt = BLKT_MAP[name]
+        field_name = dt._fields_[field][0]
+        bf[i].size = getattr(dt, field_name).size
+        bf[i].offset = getattr(dt, field_name).offset
     lil = clibmseed.readMSEEDBuffer(buffer, buflen, selections, unpack_data,
-                                    reclen, 0, C.c_int(details), allocData)
+                                    reclen, 0, C.c_int(details), allocData,
+                                    bf, len(monitor))
 
     # XXX: Check if the freeing works.
     del selections
@@ -294,6 +306,8 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
         except ValueError:
             break
         while True:
+            #from IPython.core.debugger import Tracer; Tracer()()
+
             header['sampling_rate'] = currentSegment.samprate
             header['starttime'] = \
                 util._convertMSTimeToDatetime(currentSegment.starttime)

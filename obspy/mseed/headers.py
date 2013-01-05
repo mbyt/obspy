@@ -631,6 +631,8 @@ ContinuousSegment._fields_ = [
     ('samplecnt', C.c_int64),
     ('timing_quality', C.c_uint8),
     ('calibration_type',  C.c_int8),
+    ('blkt_buffer_len', C.c_uint8),
+    ('blkt_buffer', C.POINTER(C.c_uint8)),
     ('datasamples', C.c_void_p),      # Data samples, 'numsamples' of type
                                       # 'sampletype'
     ('firstRecord', C.c_void_p),
@@ -660,6 +662,12 @@ LinkedIDList._fields_ = [
      C.POINTER(LinkedIDList)),        # Pointer to previous id
     ]
 
+class BField(C.Structure):
+    _fields_ = [
+        ('blkt_name', C.c_int),
+        ('offset', C.c_int),
+        ('size', C.c_int),
+    ]
 
 ########################################
 # Done with the C structures defintions.
@@ -674,7 +682,9 @@ clibmseed.readMSEEDBuffer.argtypes = [
     C.c_int,
     C.c_int,
     C.c_int,
-    C.CFUNCTYPE(C.c_long, C.c_int, C.c_char)
+    C.CFUNCTYPE(C.c_long, C.c_int, C.c_char),
+    C.POINTER(BField), 
+    C.c_int,
     ]
 
 clibmseed.readMSEEDBuffer.restype = C.POINTER(LinkedIDList)
@@ -694,3 +704,20 @@ clibmseed.lil_free.restype = C.c_void_p
 def __PyFile_callback(_f):
     return 1
 _PyFile_callback = C.CFUNCTYPE(C.c_int, Py_ssize_t)(__PyFile_callback)
+
+BLKT_MAP = {
+    100: blkt_100_s,
+    200: blkt_200_s,
+    201: blkt_201_s,
+    300: blkt_300_s,
+    310: blkt_310_s,
+    320: blkt_320_s,
+    390: blkt_390_s,
+    395: blkt_395_s,
+    400: blkt_400_s,
+    405: blkt_405_s,
+    500: blkt_500_s,
+    1000: blkt_1000_s,
+    1001: blkt_1001_s,
+    2000: blkt_2000_s,
+}
