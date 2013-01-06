@@ -631,7 +631,7 @@ ContinuousSegment._fields_ = [
     ('samplecnt', C.c_int64),
     ('timing_quality', C.c_uint8),
     ('calibration_type',  C.c_int8),
-    ('blkt_buffer_len', C.c_uint8),
+    ('blkt_buffer_len', C.c_uint32),
     ('blkt_buffer', C.POINTER(C.c_uint8)),
     ('datasamples', C.c_void_p),      # Data samples, 'numsamples' of type
                                       # 'sampletype'

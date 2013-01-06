@@ -341,13 +341,17 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
                     int step = 0;
                     for (i = 0; i < bfieldlen; ++i) {
                         if (cur_blkt->blkt_type == bfield[i].blkt_name) {
+#if 0
                             printf("name %d, offset %d, size %d\n", bfield[i].blkt_name, bfield[i].offset, bfield[i].size);
+#endif
                             memcpy((void *)(blkt_buffer + step), (void *)(cur_blkt->blktdata + bfield[i].offset), bfield[i].size);
                         }
                         step += bfield[i].size;
                     }
                     /* old way */
+#if 0
                     printf("%d\n", cur_blkt->blkt_type);
+#endif
                     switch (cur_blkt->blkt_type) {
                     case 300:
                         calibration_type = 1;
@@ -398,7 +402,6 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
             segmentCurrent->blkt_buffer = calloc(blkt_buffer_len, sizeof(uint8_t));
             memcpy(segmentCurrent->blkt_buffer, blkt_buffer, blkt_buffer_len);
             segmentCurrent->blkt_buffer_len = blkt_buffer_len;
-            printf("%d\n", blkt_buffer_len);
             segmentCurrent->previous = idListCurrent->lastSegment;
             if (idListCurrent->lastSegment != NULL) {
                 idListCurrent->lastSegment->next = segmentCurrent;

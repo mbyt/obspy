@@ -268,8 +268,12 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
     # it hopefully works on 32 and 64 bit systems.
     allocData = C.CFUNCTYPE(C.c_long, C.c_int, C.c_char)(allocate_data)
 
+    class BBuffer(C.Structure):
+        _pack_ = 1
+
     # monitor
     bf = (BField * len(monitor))()
+    l = []
     for i, m in enumerate(monitor):
         name, field = [int(_) for _ in m.split('->')]
         bf[i].blkt_name = name
@@ -277,6 +281,8 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
         field_name = dt._fields_[field][0]
         bf[i].size = getattr(dt, field_name).size
         bf[i].offset = getattr(dt, field_name).offset
+        l.append((m, dt._fields_[field][1]))
+    BBuffer._fields_ = l
     lil = clibmseed.readMSEEDBuffer(buffer, buflen, selections, unpack_data,
                                     reclen, 0, C.c_int(details), allocData,
                                     bf, len(monitor))
@@ -306,8 +312,6 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
         except ValueError:
             break
         while True:
-            #from IPython.core.debugger import Tracer; Tracer()()
-
             header['sampling_rate'] = currentSegment.samprate
             header['starttime'] = \
                 util._convertMSTimeToDatetime(currentSegment.starttime)
@@ -325,15 +329,23 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
                 data = all_data.pop(0)
                 header['npts'] = len(data)
             else:
+                # Make sure to init the number of samples.
                 data = np.array([])
                 header['npts'] = currentSegment.samplecnt
-            # Make sure to init the number of samples.
-            trace = Trace(header=header, data=data)
             # Append information if necessary.
             if recinfo:
-                for key, value in info.iteritems():
-                    setattr(trace.stats.mseed, key, value)
-            traces.append(trace)
+                header['mseed'].update(info)
+            # append monitor info
+            if monitor:
+                bb = BBuffer.from_address(
+                    C.addressof(currentSegment.blkt_buffer.contents))
+                header['mseed'].update(
+                    dict([(d, getattr(bb, d)) for d, _ in bb._fields_]))
+                # XXX do nicer, such that it can work on windows, or inclucde
+                # into lil
+                del bb
+                C.pythonapi.free(C.addressof(currentSegment.blkt_buffer.contents))
+            traces.append(Trace(header=header, data=data))
             # A Null pointer access results in a ValueError
             try:
                 currentSegment = currentSegment.next.contents
