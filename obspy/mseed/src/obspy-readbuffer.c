@@ -217,7 +217,7 @@ copySegmentData(ContinuousSegment * const contseg,
 // Function that reads from a MiniSEED binary file from a char buffer and
 // returns a LinkedIDList.
 LinkedIDList *
-readMSEEDBuffer (const char *mseed, const int buflen, Selections *selections,
+readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
         const flag unpack_data, const int reclen, const flag verbose,
         const flag details, long (* const allocData) (int, char))
 {
