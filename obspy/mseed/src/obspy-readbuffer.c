@@ -332,7 +332,7 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
             nhptimetol = ( hptimetol ) ? -hptimetol : 0;
             lastgap = recordCurrent->record->starttime - segmentCurrent->endtime - segmentCurrent->hpdelta;
         }
-        if (details == 1) {
+        if ((details == 1) || (blkt_buffer_len >= 1)) {
             /* extract information on calibration BLKs */
             calibration_type = -1;
             if (recordCurrent->record->blkts) {

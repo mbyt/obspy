@@ -918,6 +918,8 @@ class MSEEDReadingAndWritingTestCase(unittest.TestCase):
         dt = np.dtype([('npts', 'i4'), ('qual', 'i4')])
         res = np.array([(tr.stats.npts, tr.stats.mseed.timing_quality)
                         for tr in st], dtype=dt)
+        qual = [55, 70, 86, 66, 54, 14, 83, 75, 77, 19, 34, 25, 37, 100, 5]
+        np.testing.assert_array_equal(res[:15]['qual'], qual)
         one_big_st = read(filename)  # do not read timing quality info
         # timing_quality splits the stream additionaly when timing quality
         # changes, sum of all points in stream must stay the same
@@ -926,6 +928,36 @@ class MSEEDReadingAndWritingTestCase(unittest.TestCase):
         self.assertEquals((res[:]['qual'] >= 0).sum(),  res.shape[0])
         self.assertEquals((res[:]['qual'] <= 100).sum(),  res.shape[0])
 
+    def test_monitorTimingqual(self):
+        """
+        Read timing quality via monitor of L{obspy.core.Stream}.
+        """
+        # TODO: if used, delete test_readTimingqual?
+        filename = os.path.join(self.path, 'data', 'timingquality.mseed')
+        st = read(filename, monitor=['b1001_0'])
+        dt = np.dtype([('npts', 'i4'), ('qual', 'i4')])
+        res = np.array([(tr.stats.npts, tr.stats.mseed.b1001_0)
+                        for tr in st], dtype=dt)
+        qual = [55, 70, 86, 66, 54, 14, 83, 75, 77, 19, 34, 25, 37, 100, 5]
+        np.testing.assert_array_equal(res[:15]['qual'], qual)
+        one_big_st = read(filename)  # do not read timing quality info
+        # timing_quality splits the stream additionaly when timing quality
+        # changes, sum of all points in stream must stay the same
+        self.assertEquals(one_big_st[0].stats.npts, res[:]['npts'].sum())
+        self.assertEquals(len(st), 101)
+        # timing quality must be inside the range of 0 to 100 [%]
+        self.assertEquals((res[:]['qual'] >= 0).sum(),  res.shape[0])
+        self.assertEquals((res[:]['qual'] <= 100).sum(),  res.shape[0])
+
+    def test_monitorExceptions(self):
+        """
+        Test for usefull exception messages
+        """
+        filename = os.path.join(self.path, 'data', 'timingquality.mseed')
+        self.assertRaises(ValueError, read, filename, monitor=['bxyz_0'])
+        self.assertRaises(ValueError, read, filename, monitor=['b1001'])
+        self.assertRaises(IndexError, read, filename, monitor=['b1001_99'])
+        self.assertRaises(KeyError, read, filename, monitor=['b9999_0'])
 
 def suite():
     return unittest.makeSuite(MSEEDReadingAndWritingTestCase,  'test')

@@ -135,7 +135,23 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
         information: 1 == Step Calibration, 2 == Sine Calibration, 3 ==
         Pseudo-random Calibration, 4 == Generic Calibration and -2 ==
         Calibration Abort.
-    :param monitor:
+    :type monitor: list, example: ["1001_3", "FH_12"]
+    :param monitor: The ``monitor`` kwarg is a list of strings with the format
+        "Blockette_Field". Any blockette field specified in this way will be
+        monitored during reading and written to each trace.stats.mseed
+        AttribDict. If a blockette is not available, the stats.mseed attribute
+        will be set to ``None``.
+        Any time the combination of blockette-fields changes (existance/value
+        changes) in the course of reading the MiniSEED file, a new Trace will
+        be created. Thus it is assured that each record that contributed to the
+        Trace had this exact combination of blockette-fields.
+        This is useful for quality control using information stored in raw
+        MiniSEED files. It is also possible to monitor fields in the fixed
+        headers of a MiniSEED file. The field to be monitored needs to be
+        specified in the form "1001_3".
+        This argument can potentially have a significant impact on performance
+        and memory consumption and consequently should only be used when of
+        interest.m monitor:
 
     .. rubric:: Example
 
@@ -275,10 +291,20 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
     bf = (BField * len(monitor))()
     l = []
     for i, m in enumerate(monitor):
-        name, field = [int(_) for _ in m.split('->')]
+        try:
+            name, field = [int(j) for j in m.lstrip('b').split('_')]
+            dt = BLKT_MAP[name]
+            field_name = dt._fields_[field][0]
+        except ValueError:
+            msg = '%s: blkt, field must be digits or are not separated by _'
+            raise ValueError(msg % m)
+        except KeyError:
+            msg = 'Invalid key %d, valid keys are: %s'
+            raise KeyError(msg % (name, BLKT_MAP.keys()))
+        except IndexError:
+            msg = 'Invalid field %d, blkt %d has maximal %d fields'
+            raise IndexError(msg % (field, name, len(dt._fields_)))
         bf[i].blkt_name = name
-        dt = BLKT_MAP[name]
-        field_name = dt._fields_[field][0]
         bf[i].size = getattr(dt, field_name).size
         bf[i].offset = getattr(dt, field_name).offset
         l.append((m, dt._fields_[field][1]))
@@ -340,10 +366,9 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
                 bb = BBuffer.from_address(
                     C.addressof(currentSegment.blkt_buffer.contents))
                 header['mseed'].update(
-                    dict([(d, getattr(bb, d)) for d, _ in bb._fields_]))
+                    dict((d, getattr(bb, d)) for d, _ in bb._fields_))
                 # XXX do nicer, such that it can work on windows, or inclucde
                 # into lil
-                del bb
                 C.pythonapi.free(C.addressof(currentSegment.blkt_buffer.contents))
             traces.append(Trace(header=header, data=data))
             # A Null pointer access results in a ValueError
