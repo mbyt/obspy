@@ -59,8 +59,8 @@ typedef struct ContinuousSegment_s {
     /* type of calibration available, BLK 300 = 1, BLK 310 = 2, BLK 320 = 3
      * BLK 390 = 4, BLK 395 = -2 */
     int8_t calibration_type;
-    uint32_t blkt_buffer_len;
-    uint8_t *blkt_buffer;
+    uint32_t fieldbuflen;
+    uint8_t *fieldbuf;
     void *datasamples;                      // Actual data samples
     struct LinkedRecordList_s *firstRecord; // First item
     struct LinkedRecordList_s *lastRecord;  // Last item
@@ -216,11 +216,11 @@ copySegmentData(ContinuousSegment * const contseg,
     }
 }
 
-typedef struct bfield_s {
+typedef struct FieldDesc_s {
     int32_t blkt_name;
     int32_t offset;
     int32_t size;
-} binfield;
+} FieldDesc;
 
 // Function that reads from a MiniSEED binary file from a char buffer and
 // returns a LinkedIDList.
@@ -228,7 +228,7 @@ LinkedIDList *
 readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
         const flag unpack_data, const int reclen, const flag verbose,
         const flag details, long (* const allocData) (int, char),
-        const binfield * bfield, const int bfieldlen)
+        const FieldDesc *fielddesc, const int fielddesclen)
 {
     // current offset of mseed char pointer
     int64_t offset = 0;
@@ -252,15 +252,15 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
     hptime_t nhptimetol = 0;
     LinkedRecordList *recordCurrent = NULL;
     int record_count = 0;
-    uint32_t blkt_buffer_len = 0;
-    uint8_t *blkt_buffer;
+    uint32_t fieldbuflen = 0;
+    uint8_t *fieldbuf;
     uint32_t i;
 
 
-    for (i = 0; i < bfieldlen; ++i) {
-        blkt_buffer_len += bfield[i].size;
+    for (i = 0; i < fielddesclen; ++i) {
+        fieldbuflen += fielddesc[i].size;
     }
-    blkt_buffer = (uint8_t *) calloc(blkt_buffer_len, sizeof(uint8_t));
+    fieldbuf = (uint8_t *) calloc(fieldbuflen, sizeof(uint8_t));
 
     /* Loop over all selected records in recbuf */
     while (offset < buflen64) {
@@ -332,21 +332,21 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
             nhptimetol = ( hptimetol ) ? -hptimetol : 0;
             lastgap = recordCurrent->record->starttime - segmentCurrent->endtime - segmentCurrent->hpdelta;
         }
-        if ((details == 1) || (blkt_buffer_len >= 1)) {
+        if ((details == 1) || (fieldbuflen >= 1)) {
             /* extract information on calibration BLKs */
             calibration_type = -1;
             if (recordCurrent->record->blkts) {
                 BlktLink *cur_blkt = recordCurrent->record->blkts;
                 while (cur_blkt) {
                     int step = 0;
-                    for (i = 0; i < bfieldlen; ++i) {
-                        if (cur_blkt->blkt_type == bfield[i].blkt_name) {
+                    for (i = 0; i < fielddesclen; ++i) {
+                        if (cur_blkt->blkt_type == fielddesc[i].blkt_name) {
 #if 0
-                            printf("name %d, offset %d, size %d\n", bfield[i].blkt_name, bfield[i].offset, bfield[i].size);
+                            printf("name %d, offset %d, size %d\n", fielddesc[i].blkt_name, fielddesc[i].offset, fielddesc[i].size);
 #endif
-                            memcpy((void *)(blkt_buffer + step), (void *)(cur_blkt->blktdata + bfield[i].offset), bfield[i].size);
+                            memcpy((void *)(fieldbuf + step), (void *)(cur_blkt->blktdata + fielddesc[i].offset), fielddesc[i].size);
                         }
-                        step += bfield[i].size;
+                        step += fielddesc[i].size;
                     }
                     /* old way */
 #if 0
@@ -388,7 +388,7 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
              lastgap <= hptimetol && lastgap >= nhptimetol &&
              segmentCurrent->timing_qual == timing_qual &&
              segmentCurrent->calibration_type == calibration_type &&
-             memcmp(segmentCurrent->blkt_buffer, blkt_buffer, blkt_buffer_len) == 0) {
+             memcmp(segmentCurrent->fieldbuf, fieldbuf, fieldbuflen) == 0) {
             segmentCurrent->lastRecord = segmentCurrent->lastRecord->next = recordCurrent;
             segmentCurrent->samplecnt += recordCurrent->record->samplecnt;
             segmentCurrent->endtime = msr_endtime(recordCurrent->record);
@@ -399,9 +399,9 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
             // the corresponding records can be freed already
             copySegmentData(idListCurrent->lastSegment, unpack_data, allocData);
             segmentCurrent = seg_init();
-            segmentCurrent->blkt_buffer = calloc(blkt_buffer_len, sizeof(uint8_t));
-            memcpy(segmentCurrent->blkt_buffer, blkt_buffer, blkt_buffer_len);
-            segmentCurrent->blkt_buffer_len = blkt_buffer_len;
+            segmentCurrent->fieldbuf = calloc(fieldbuflen, sizeof(uint8_t));
+            memcpy(segmentCurrent->fieldbuf, fieldbuf, fieldbuflen);
+            segmentCurrent->fieldbuflen = fieldbuflen;
             segmentCurrent->previous = idListCurrent->lastSegment;
             if (idListCurrent->lastSegment != NULL) {
                 idListCurrent->lastSegment->next = segmentCurrent;
@@ -436,6 +436,6 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
         idListCurrent = idListCurrent->next;
     }
 
-    free(blkt_buffer);
+    free(fieldbuf);
     return idListHead;
 }

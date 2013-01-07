@@ -5,7 +5,7 @@ MSEED bindings to ObsPy core module.
 
 from headers import clibmseed, ENCODINGS, HPTMODULUS, SAMPLETYPE, DATATYPES, \
     SAMPLESIZES, VALID_RECORD_LENGTHS, HPTERROR, SelectTime, Selections, \
-    blkt_1001_s, VALID_CONTROL_HEADERS, SEED_CONTROL_HEADERS, BField, \
+    blkt_1001_s, VALID_CONTROL_HEADERS, SEED_CONTROL_HEADERS, FieldDesc, \
     BLKT_MAP
 from itertools import izip
 from math import log
@@ -284,12 +284,12 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
     # it hopefully works on 32 and 64 bit systems.
     allocData = C.CFUNCTYPE(C.c_long, C.c_int, C.c_char)(allocate_data)
 
-    class BBuffer(C.Structure):
+    class FieldBuf(C.Structure):
         _pack_ = 1
 
     # monitor
-    bf = (BField * len(monitor))()
-    l = []
+    fielddesc = (FieldDesc * len(monitor))()
+    fields = []
     for i, m in enumerate(monitor):
         try:
             name, field = [int(j) for j in m.lstrip('b').split('_')]
@@ -304,14 +304,14 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
         except IndexError:
             msg = 'Invalid field %d, blkt %d has maximal %d fields'
             raise IndexError(msg % (field, name, len(dt._fields_)))
-        bf[i].blkt_name = name
-        bf[i].size = getattr(dt, field_name).size
-        bf[i].offset = getattr(dt, field_name).offset
-        l.append((m, dt._fields_[field][1]))
-    BBuffer._fields_ = l
+        fielddesc[i].blkt_name = name
+        fielddesc[i].size = getattr(dt, field_name).size
+        fielddesc[i].offset = getattr(dt, field_name).offset
+        fields.append((m, dt._fields_[field][1]))
+    FieldBuf._fields_ = fields
     lil = clibmseed.readMSEEDBuffer(buffer, buflen, selections, unpack_data,
                                     reclen, 0, C.c_int(details), allocData,
-                                    bf, len(monitor))
+                                    fielddesc, len(monitor))
 
     # XXX: Check if the freeing works.
     del selections
@@ -363,13 +363,15 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
                 header['mseed'].update(info)
             # append monitor info
             if monitor:
-                bb = BBuffer.from_address(
-                    C.addressof(currentSegment.blkt_buffer.contents))
-                header['mseed'].update(
-                    dict((d, getattr(bb, d)) for d, _ in bb._fields_))
+                if C.sizeof(FieldBuf) != currentSegment.fieldbuflen:
+                    raise Exception('Mismatching size of blkt field buffer')
+                fb = FieldBuf.from_address(
+                    C.addressof(currentSegment.fieldbuf.contents))
+                header['mseed'].update(dict(
+                    (d, getattr(fb, d)) for d, _ in fb._fields_))
                 # XXX do nicer, such that it can work on windows, or inclucde
                 # into lil
-                C.pythonapi.free(C.addressof(currentSegment.blkt_buffer.contents))
+                C.pythonapi.free(C.addressof(currentSegment.fieldbuf.contents))
             traces.append(Trace(header=header, data=data))
             # A Null pointer access results in a ValueError
             try:

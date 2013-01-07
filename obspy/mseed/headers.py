@@ -631,8 +631,8 @@ ContinuousSegment._fields_ = [
     ('samplecnt', C.c_int64),
     ('timing_quality', C.c_uint8),
     ('calibration_type',  C.c_int8),
-    ('blkt_buffer_len', C.c_uint32),
-    ('blkt_buffer', C.POINTER(C.c_uint8)),
+    ('fieldbuflen', C.c_uint32),
+    ('fieldbuf', C.POINTER(C.c_byte)),
     ('datasamples', C.c_void_p),      # Data samples, 'numsamples' of type
                                       # 'sampletype'
     ('firstRecord', C.c_void_p),
@@ -662,7 +662,7 @@ LinkedIDList._fields_ = [
      C.POINTER(LinkedIDList)),        # Pointer to previous id
     ]
 
-class BField(C.Structure):
+class FieldDesc(C.Structure):
     _fields_ = [
         ('blkt_name', C.c_int),
         ('offset', C.c_int),
@@ -683,7 +683,7 @@ clibmseed.readMSEEDBuffer.argtypes = [
     C.c_int,
     C.c_int,
     C.CFUNCTYPE(C.c_long, C.c_int, C.c_char),
-    C.POINTER(BField), 
+    C.POINTER(FieldDesc), 
     C.c_int,
     ]
 
