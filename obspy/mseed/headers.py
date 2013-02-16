@@ -618,28 +618,19 @@ Selections._fields_ = [
     ]
 
 
-# Container for a continuous linked list of records.
-class ContinuousSegment(C.Structure):
+# Container addon for a continuous linked list of records.
+class SegAddon(C.Structure):
     pass
 
-ContinuousSegment._fields_ = [
-    ('starttime', C.c_longlong),
-    ('endtime', C.c_longlong),
-    ('samprate', C.c_double),
-    ('sampletype', C.c_char),
+SegAddon._fields_ = [
     ('hpdelta', C.c_longlong),
-    ('samplecnt', C.c_int64),
     ('timing_quality', C.c_uint8),
     ('calibration_type',  C.c_int8),
     ('fieldbuflen', C.c_uint32),
     ('fieldbuf', C.POINTER(C.c_byte)),
-    ('datasamples', C.c_void_p),      # Data samples, 'numsamples' of type
-                                      # 'sampletype'
     ('firstRecord', C.c_void_p),
     ('lastRecord', C.c_void_p),
-    ('next', C.POINTER(ContinuousSegment)),
-    ('previous', C.POINTER(ContinuousSegment))
-    ]
+]
 
 
 # A container for continuous segments with the same id
@@ -653,9 +644,9 @@ LinkedIDList._fields_ = [
     ('channel', C.c_char * 11),       # Channel designation, NULL terminated
     ('dataquality', C.c_char),        # Data quality indicator
     ('firstSegment',
-     C.POINTER(ContinuousSegment)),   # Pointer to first of list of segments
+     C.POINTER(MSTraceSeg)),   # Pointer to first of list of segments
     ('lastSegment',
-     C.POINTER(ContinuousSegment)),   # Pointer to last of list of segments
+     C.POINTER(MSTraceSeg)),   # Pointer to last of list of segments
     ('next',
      C.POINTER(LinkedIDList)),        # Pointer to next id
     ('previous',

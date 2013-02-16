@@ -6,7 +6,7 @@ MSEED bindings to ObsPy core module.
 from headers import clibmseed, ENCODINGS, HPTMODULUS, SAMPLETYPE, DATATYPES, \
     SAMPLESIZES, VALID_RECORD_LENGTHS, HPTERROR, SelectTime, Selections, \
     blkt_1001_s, VALID_CONTROL_HEADERS, SEED_CONTROL_HEADERS, FieldDesc, \
-    BLKT_MAP
+    BLKT_MAP, SegAddon
 from itertools import izip
 from math import log
 from obspy import Stream, Trace, UTCDateTime
@@ -343,12 +343,12 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
                 util._convertMSTimeToDatetime(currentSegment.starttime)
             # TODO: write support is missing
             if details:
-                timing_quality = currentSegment.timing_quality
+                timing_quality = C.cast(currentSegment.prvtptr, C.POINTER(SegAddon)).contents.timing_quality
                 if timing_quality == 0xFF:  # 0xFF is mask for not known timing
                     timing_quality = -1
                 header['mseed']['timing_quality'] = timing_quality
                 header['mseed']['calibration_type'] = \
-                        currentSegment.calibration_type
+                        C.cast(currentSegment.prvtptr, C.POINTER(SegAddon)).contents.calibration_type
 
             if headonly is False:
                 # The data always will be in sequential order.
@@ -363,15 +363,15 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
                 header['mseed'].update(info)
             # append monitor info
             if monitor:
-                if C.sizeof(FieldBuf) != currentSegment.fieldbuflen:
+                if C.sizeof(FieldBuf) != C.cast(currentSegment.prvtptr, C.POINTER(SegAddon)).contents.fieldbuflen:
                     raise Exception('Mismatching size of blkt field buffer')
                 fb = FieldBuf.from_address(
-                    C.addressof(currentSegment.fieldbuf.contents))
+                    C.addressof(C.cast(currentSegment.prvtptr, C.POINTER(SegAddon)).contents.fieldbuf.contents))
                 header['mseed'].update(dict(
                     (d, getattr(fb, d)) for d, _ in fb._fields_))
-                # XXX do nicer, such that it can work on windows, or inclucde
+                # XXX do nicer, such that it can work on windows, or include
                 # into lil
-                C.pythonapi.free(C.addressof(currentSegment.fieldbuf.contents))
+                C.pythonapi.free(C.cast(currentSegment.prvtptr, C.POINTER(SegAddon)).contents.fieldbuf)
             traces.append(Trace(header=header, data=data))
             # A Null pointer access results in a ValueError
             try:

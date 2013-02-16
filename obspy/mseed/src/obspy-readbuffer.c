@@ -45,14 +45,8 @@ typedef struct LinkedRecordList_s {
 }
 LinkedRecordList;
 
-// Container for a continuous linked list of records.
-typedef struct ContinuousSegment_s {
-    hptime_t starttime;                     // Time of the first sample
-    hptime_t endtime;                       // Time of the last sample
-    double samprate;                        // Sample rate
-    char sampletype;                        // Sampletype
+typedef struct SegAddon_s {
     hptime_t hpdelta;                       // High precission sample period
-    int64_t samplecnt;                         // Total sample count
     /* Timing quality is a vendor specific value from 0 to 100% of maximum
      * accuracy, taking into account both clock quality and data flags. */
     uint8_t timing_qual;
@@ -61,13 +55,9 @@ typedef struct ContinuousSegment_s {
     int8_t calibration_type;
     uint32_t fieldbuflen;
     uint8_t *fieldbuf;
-    void *datasamples;                      // Actual data samples
     struct LinkedRecordList_s *firstRecord; // First item
     struct LinkedRecordList_s *lastRecord;  // Last item
-    struct ContinuousSegment_s *next;       // Next segment
-    struct ContinuousSegment_s *previous;   // Previous segment
-}
-ContinuousSegment;
+} SegAddon;
 
 // A container for continuous segments with the same id
 typedef struct LinkedIDList_s {
@@ -76,8 +66,8 @@ typedef struct LinkedIDList_s {
     char location[11];                        // Location designation, NULL terminated
     char channel[11];                         // Channel designation, NULL terminated
     char dataquality;                         // Data quality indicator */
-    struct ContinuousSegment_s *firstSegment; // Pointer to first of list of segments
-    struct ContinuousSegment_s *lastSegment;  // Pointer to last of list of segments
+    struct MSTraceSeg_s *firstSegment; // Pointer to first of list of segments
+    struct MSTraceSeg_s *lastSegment;  // Pointer to last of list of segments
     struct LinkedIDList_s *next;              // Pointer to next id
     struct LinkedIDList_s *previous;          // Pointer to previous id
 }
@@ -111,19 +101,6 @@ lrl_init (void)
     return lrl;
 }
 
-// Init a Segment with a linked record list.
-static ContinuousSegment *
-seg_init(void)
-{
-    ContinuousSegment *seg = (ContinuousSegment *) malloc (sizeof(ContinuousSegment));
-    if ( seg == NULL ) {
-        ms_log (2, "seg_init(): Cannot allocate memory\n");
-        return NULL;
-    }
-    memset (seg, 0, sizeof (ContinuousSegment));
-    return seg;
-}
-
 // Frees a LinkedRecordList. The given Record is assumed to be the head of the
 // list.
 static void
@@ -142,26 +119,6 @@ lrl_free(LinkedRecordList * lrl)
     lrl = NULL;
 }
 
-// Frees a ContinuousSegment and all structures associated with it.
-// The given segment is supposed to be the head of the linked list.
-static void
-seg_free(ContinuousSegment * seg)
-{
-    ContinuousSegment * next;
-    while (seg != NULL) {
-        next = seg->next;
-        // free(seg->datasamples);
-        if (seg->firstRecord != NULL) {
-            lrl_free(seg->firstRecord);
-        }
-        free(seg);
-        if (next == NULL) {
-            break;
-        }
-        seg = next;
-    }
-    seg = NULL;
-}
 
 // Free a LinkedIDList and all structures associated with it.
 void
@@ -171,7 +128,12 @@ lil_free(LinkedIDList * lil)
     while ( lil != NULL) {
         next = lil->next;
         if (lil->firstSegment != NULL) {
-            seg_free(lil->firstSegment);
+            if (((SegAddon *)lil->firstSegment->prvtptr)->firstRecord != NULL) {
+                lrl_free(((SegAddon *)lil->firstSegment->prvtptr)->firstRecord);
+            }
+            free((SegAddon *)lil->firstSegment->prvtptr);
+            free(lil->firstSegment);
+
         }
         free(lil);
         if (next == NULL) {
@@ -183,7 +145,8 @@ lil_free(LinkedIDList * lil)
 }
 
 static void
-copySegmentData(ContinuousSegment * const contseg,
+copySegmentData(MSTraceSeg * const contseg,
+
     const flag unpack_data, long (* const allocData) (int, char)) {
     int size;
     long offset;
@@ -200,7 +163,8 @@ copySegmentData(ContinuousSegment * const contseg,
         }
 
         // Loop over all records, write the data to the buffer and free the msr structures.
-        reclst = contseg->firstRecord;
+        reclst = ((SegAddon *)contseg->prvtptr)->firstRecord;
+
         offset = (long) (contseg->datasamples);
         while (reclst != NULL ) {
             size = reclst->record->samplecnt
@@ -246,7 +210,8 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
     LinkedIDList * idListCurrent = NULL;
     LinkedIDList * idListLast = NULL;
     MSRecord *msr = NULL;
-    ContinuousSegment * segmentCurrent = NULL;
+    MSTraceSeg * segmentCurrent = NULL;
+
     hptime_t lastgap = 0;
     hptime_t hptimetol = 0;
     hptime_t nhptimetol = 0;
@@ -328,9 +293,10 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
         // created. This is on purpose.
         segmentCurrent = idListCurrent->lastSegment;
         if (segmentCurrent != NULL) {
-            hptimetol = (hptime_t) (0.5 * segmentCurrent->hpdelta);
+            hptimetol = (hptime_t) (0.5 * ((SegAddon *) segmentCurrent->prvtptr)->hpdelta);
             nhptimetol = ( hptimetol ) ? -hptimetol : 0;
-            lastgap = recordCurrent->record->starttime - segmentCurrent->endtime - segmentCurrent->hpdelta;
+            lastgap = recordCurrent->record->starttime - segmentCurrent->endtime - ((SegAddon *) segmentCurrent->prvtptr)->hpdelta;
+
         }
         if ((details == 1) || (fieldbuflen >= 1)) {
             /* extract information on calibration BLKs */
@@ -386,10 +352,10 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
              MS_ISRATETOLERABLE (segmentCurrent->samprate, recordCurrent->record->samprate) &&
              // Check if the times are within the time tolerance
              lastgap <= hptimetol && lastgap >= nhptimetol &&
-             segmentCurrent->timing_qual == timing_qual &&
-             segmentCurrent->calibration_type == calibration_type &&
-             memcmp(segmentCurrent->fieldbuf, fieldbuf, fieldbuflen) == 0) {
-            segmentCurrent->lastRecord = segmentCurrent->lastRecord->next = recordCurrent;
+             ((SegAddon *) segmentCurrent->prvtptr)->timing_qual == timing_qual &&
+             ((SegAddon *) segmentCurrent->prvtptr)->calibration_type == calibration_type &&
+             memcmp(((SegAddon *) segmentCurrent->prvtptr)->fieldbuf, fieldbuf, fieldbuflen) == 0) {
+            ((SegAddon *) segmentCurrent->prvtptr)->lastRecord = ((SegAddon *) segmentCurrent->prvtptr)->lastRecord->next = recordCurrent;
             segmentCurrent->samplecnt += recordCurrent->record->samplecnt;
             segmentCurrent->endtime = msr_endtime(recordCurrent->record);
         }
@@ -398,11 +364,18 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
             // the last contiguous segment of the current can now be copied and
             // the corresponding records can be freed already
             copySegmentData(idListCurrent->lastSegment, unpack_data, allocData);
-            segmentCurrent = seg_init();
-            segmentCurrent->fieldbuf = calloc(fieldbuflen, sizeof(uint8_t));
-            memcpy(segmentCurrent->fieldbuf, fieldbuf, fieldbuflen);
-            segmentCurrent->fieldbuflen = fieldbuflen;
-            segmentCurrent->previous = idListCurrent->lastSegment;
+            if ( !(segmentCurrent = (MSTraceSeg *) calloc (1, sizeof(MSTraceSeg))) ) {
+                ms_log (2, "readMSEEDBuffer(): Error allocating memory\n");
+                return 0;
+            }
+            if ( !(segmentCurrent->prvtptr = (void *) ((SegAddon *) calloc (1, sizeof(SegAddon))) )) {
+                ms_log (2, "readMSEEDBuffer(): Error allocating memory\n");
+                return 0;
+            }
+            ((SegAddon *) segmentCurrent->prvtptr)->fieldbuf = calloc(fieldbuflen, sizeof(uint8_t));
+            memcpy(((SegAddon *) segmentCurrent->prvtptr)->fieldbuf, fieldbuf, fieldbuflen);
+            ((SegAddon *) segmentCurrent->prvtptr)->fieldbuflen = fieldbuflen;
+            segmentCurrent->prev = idListCurrent->lastSegment;
             if (idListCurrent->lastSegment != NULL) {
                 idListCurrent->lastSegment->next = segmentCurrent;
             }
@@ -417,11 +390,11 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
             segmentCurrent->sampletype = recordCurrent->record->sampletype;
             segmentCurrent->samplecnt = recordCurrent->record->samplecnt;
             // Calculate high-precision sample period
-            segmentCurrent->hpdelta = (hptime_t) (( recordCurrent->record->samprate ) ?
-                           (HPTMODULUS / recordCurrent->record->samprate) : 0.0);
-            segmentCurrent->timing_qual = timing_qual;
-            segmentCurrent->calibration_type = calibration_type;
-            segmentCurrent->firstRecord = segmentCurrent->lastRecord = recordCurrent;
+            ((SegAddon *) segmentCurrent->prvtptr)->hpdelta = (hptime_t) (( recordCurrent->record->samprate ) ?
+                    (HPTMODULUS / recordCurrent->record->samprate) : 0.0);
+            ((SegAddon *) segmentCurrent->prvtptr)->timing_qual = timing_qual;
+            ((SegAddon *) segmentCurrent->prvtptr)->calibration_type = calibration_type;
+            ((SegAddon *) segmentCurrent->prvtptr)->firstRecord = ((SegAddon *) segmentCurrent->prvtptr)->lastRecord = recordCurrent;
         }
     }
     // Return empty id list if no records could be found.
