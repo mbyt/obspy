@@ -632,27 +632,6 @@ SegAddon._fields_ = [
     ('lastRecord', C.c_void_p),
 ]
 
-
-# A container for continuous segments with the same id
-class LinkedIDList(C.Structure):
-    pass
-
-LinkedIDList._fields_ = [
-    ('network', C.c_char * 11),       # Network designation, NULL terminated
-    ('station', C.c_char * 11),       # Station designation, NULL terminated
-    ('location', C.c_char * 11),      # Location designation, NULL terminated
-    ('channel', C.c_char * 11),       # Channel designation, NULL terminated
-    ('dataquality', C.c_char),        # Data quality indicator
-    ('firstSegment',
-     C.POINTER(MSTraceSeg)),   # Pointer to first of list of segments
-    ('lastSegment',
-     C.POINTER(MSTraceSeg)),   # Pointer to last of list of segments
-    ('next',
-     C.POINTER(LinkedIDList)),        # Pointer to next id
-    ('previous',
-     C.POINTER(LinkedIDList)),        # Pointer to previous id
-    ]
-
 class FieldDesc(C.Structure):
     _fields_ = [
         ('blkt_name', C.c_int),
@@ -677,8 +656,7 @@ clibmseed.readMSEEDBuffer.argtypes = [
     C.POINTER(FieldDesc), 
     C.c_int,
     ]
-
-clibmseed.readMSEEDBuffer.restype = C.POINTER(LinkedIDList)
+clibmseed.readMSEEDBuffer.restype = C.POINTER(MSTraceID)
 
 clibmseed.msr_free.argtypes = [C.POINTER(C.POINTER(MSRecord))]
 clibmseed.msr_free.restype = C.c_void_p
@@ -687,7 +665,7 @@ clibmseed.mstl_init.restype = C.POINTER(MSTraceList)
 clibmseed.mstl_free.argtypes = [C.POINTER(C.POINTER(MSTraceList)), C.c_int]
 
 
-clibmseed.lil_free.argtypes = [C.POINTER(LinkedIDList)]
+clibmseed.lil_free.argtypes = [C.POINTER(MSTraceID)]
 clibmseed.lil_free.restype = C.c_void_p
 
 

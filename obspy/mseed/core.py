@@ -334,7 +334,7 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
                   'mseed': {'dataquality': currentID.dataquality}}
         # Loop over segments.
         try:
-            currentSegment = currentID.firstSegment.contents
+            currentSegment = currentID.first.contents
         except ValueError:
             break
         while True:

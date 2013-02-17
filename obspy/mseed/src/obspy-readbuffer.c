@@ -59,31 +59,25 @@ typedef struct SegAddon_s {
     struct LinkedRecordList_s *lastRecord;  // Last item
 } SegAddon;
 
-// A container for continuous segments with the same id
-typedef struct LinkedIDList_s {
-    char network[11];                         // Network designation, NULL terminated
-    char station[11];                         // Station designation, NULL terminated
-    char location[11];                        // Location designation, NULL terminated
-    char channel[11];                         // Channel designation, NULL terminated
-    char dataquality;                         // Data quality indicator */
-    struct MSTraceSeg_s *firstSegment; // Pointer to first of list of segments
-    struct MSTraceSeg_s *lastSegment;  // Pointer to last of list of segments
-    struct LinkedIDList_s *next;              // Pointer to next id
-    struct LinkedIDList_s *previous;          // Pointer to previous id
-}
-LinkedIDList;
+typedef struct IDAddon_s {
+    struct MSTraceID_s *previous;          // Pointer to previous id
+} IDAddon;
+
 
 // Init function for the LinkedIDList
-static LinkedIDList *
+    // Allocate 0 initialized memory.
+static MSTraceID *
 lil_init(void)
 {
-    // Allocate 0 initialized memory.
-    LinkedIDList *lil = (LinkedIDList *) malloc (sizeof(LinkedIDList));
+    MSTraceID *lil = (MSTraceID *) malloc (sizeof(MSTraceID));
+
     if ( lil == NULL ) {
         ms_log (2, "lil_init(): Cannot allocate memory\n");
         return NULL;
     }
-    memset (lil, 0, sizeof (LinkedIDList));
+    memset (lil, 0, sizeof (MSTraceID));
+    lil->prvtptr = (void *) (IDAddon *) calloc (1, sizeof(IDAddon));
+    ((IDAddon *)lil->prvtptr)->previous = NULL;
     return lil;
 }
 
@@ -122,17 +116,18 @@ lrl_free(LinkedRecordList * lrl)
 
 // Free a LinkedIDList and all structures associated with it.
 void
-lil_free(LinkedIDList * lil)
+lil_free(MSTraceID * lil)
 {
-    LinkedIDList * next;
+    MSTraceID * next;
     while ( lil != NULL) {
         next = lil->next;
-        if (lil->firstSegment != NULL) {
-            if (((SegAddon *)lil->firstSegment->prvtptr)->firstRecord != NULL) {
-                lrl_free(((SegAddon *)lil->firstSegment->prvtptr)->firstRecord);
+        if (lil->first != NULL) {
+            if (((SegAddon *)lil->first->prvtptr)->firstRecord != NULL) {
+                lrl_free(((SegAddon *)lil->first->prvtptr)->firstRecord);
             }
-            free((SegAddon *)lil->firstSegment->prvtptr);
-            free(lil->firstSegment);
+            free((SegAddon *)lil->first->prvtptr);
+            free(lil->first);
+            free((IDAddon *)lil->prvtptr);
 
         }
         free(lil);
@@ -188,7 +183,7 @@ typedef struct FieldDesc_s {
 
 // Function that reads from a MiniSEED binary file from a char buffer and
 // returns a LinkedIDList.
-LinkedIDList *
+MSTraceID *
 readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
         const flag unpack_data, const int reclen, const flag verbose,
         const flag details, long (* const allocData) (int, char),
@@ -206,12 +201,11 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
     int8_t calibration_type = -1;
 
     // Init all the pointers to NULL. Most compilers should do this anyway.
-    LinkedIDList * idListHead = NULL;
-    LinkedIDList * idListCurrent = NULL;
-    LinkedIDList * idListLast = NULL;
+    MSTraceID * idListHead = NULL;
+    MSTraceID * idListCurrent = NULL;
+    MSTraceID * idListLast = NULL;
     MSRecord *msr = NULL;
     MSTraceSeg * segmentCurrent = NULL;
-
     hptime_t lastgap = 0;
     hptime_t hptimetol = 0;
     hptime_t nhptimetol = 0;
@@ -262,14 +256,15 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
                 break;
             }
             else {
-                idListCurrent = idListCurrent->previous;
+                idListCurrent = ((IDAddon *) idListCurrent->prvtptr)->previous;
             }
         }
 
         // Create a new id list if one is needed.
         if (idListCurrent == NULL) {
             idListCurrent = lil_init();
-            idListCurrent->previous = idListLast;
+            //idListCurrent->prvtptr = (void *) (IDAddon *) calloc (1, sizeof(IDAddon));
+            ((IDAddon *) idListCurrent->prvtptr)->previous = idListLast;
             if (idListLast != NULL) {
                 idListLast->next = idListCurrent;
             }
@@ -291,7 +286,7 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
         // segment of the current id. If not create a new segment. Therefore
         // if records with the same id are in wrong order a new segment will be
         // created. This is on purpose.
-        segmentCurrent = idListCurrent->lastSegment;
+        segmentCurrent = idListCurrent->last;
         if (segmentCurrent != NULL) {
             hptimetol = (hptime_t) (0.5 * ((SegAddon *) segmentCurrent->prvtptr)->hpdelta);
             nhptimetol = ( hptimetol ) ? -hptimetol : 0;
@@ -363,7 +358,7 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
         else {
             // the last contiguous segment of the current can now be copied and
             // the corresponding records can be freed already
-            copySegmentData(idListCurrent->lastSegment, unpack_data, allocData);
+            copySegmentData(idListCurrent->last, unpack_data, allocData);
             if ( !(segmentCurrent = (MSTraceSeg *) calloc (1, sizeof(MSTraceSeg))) ) {
                 ms_log (2, "readMSEEDBuffer(): Error allocating memory\n");
                 return 0;
@@ -375,15 +370,14 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
             ((SegAddon *) segmentCurrent->prvtptr)->fieldbuf = calloc(fieldbuflen, sizeof(uint8_t));
             memcpy(((SegAddon *) segmentCurrent->prvtptr)->fieldbuf, fieldbuf, fieldbuflen);
             ((SegAddon *) segmentCurrent->prvtptr)->fieldbuflen = fieldbuflen;
-            segmentCurrent->prev = idListCurrent->lastSegment;
-            if (idListCurrent->lastSegment != NULL) {
-                idListCurrent->lastSegment->next = segmentCurrent;
+            segmentCurrent->prev = idListCurrent->last;
+            if (idListCurrent->last != NULL) {
+                idListCurrent->last->next = segmentCurrent;
             }
             else {
-                idListCurrent->firstSegment = segmentCurrent;
+                idListCurrent->first = segmentCurrent;
             }
-            idListCurrent->lastSegment = segmentCurrent;
-
+            idListCurrent->last = segmentCurrent;
             segmentCurrent->starttime = recordCurrent->record->starttime;
             segmentCurrent->endtime = msr_endtime(recordCurrent->record);
             segmentCurrent->samprate = recordCurrent->record->samprate;
@@ -405,7 +399,7 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
     // copy data of all remaining segments
     idListCurrent = idListHead;
     while (idListCurrent != NULL) {
-        copySegmentData(idListCurrent->lastSegment, unpack_data, allocData);
+        copySegmentData(idListCurrent->last, unpack_data, allocData);
         idListCurrent = idListCurrent->next;
     }
 
