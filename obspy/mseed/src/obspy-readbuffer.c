@@ -120,6 +120,7 @@ lil_free(MSTraceID * lil)
             if (((SegAddon *)lil->first->prvtptr)->firstRecord != NULL) {
                 lrl_free(((SegAddon *)lil->first->prvtptr)->firstRecord);
             }
+            free(((SegAddon *)lil->first->prvtptr)->fieldbuf);
             free((SegAddon *)lil->first->prvtptr);
             free(lil->first);
         }
@@ -345,7 +346,7 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
                 ms_log (2, "readMSEEDBuffer(): Error allocating memory\n");
                 return 0;
             }
-            if ( !(segmentCurrent->prvtptr = (void *) ((SegAddon *) calloc (1, sizeof(SegAddon))) )) {
+            if ( !(segmentCurrent->prvtptr = (SegAddon *) calloc(1, sizeof(SegAddon)))) {
                 ms_log (2, "readMSEEDBuffer(): Error allocating memory\n");
                 return 0;
             }

@@ -371,9 +371,6 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
                     C.addressof(C.cast(currentSegment.prvtptr, C.POINTER(SegAddon)).contents.fieldbuf.contents))
                 header['mseed'].update(dict(
                     (d, getattr(fb, d)) for d, _ in fb._fields_))
-                # XXX do nicer, such that it can work on windows, or include
-                # into lil
-                C.pythonapi.free(C.cast(currentSegment.prvtptr, C.POINTER(SegAddon)).contents.fieldbuf)
             traces[-1].append(Trace(header=header, data=data))
             # A Null pointer access results in a ValueError
             try:
