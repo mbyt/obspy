@@ -45,6 +45,8 @@ typedef struct LinkedRecordList_s {
 }
 LinkedRecordList;
 
+/* TODO calibartion_type and timing_qual are both special cases of fieldbuf *
+ * they should be removed in future versions */
 typedef struct SegAddon_s {
     hptime_t hpdelta;                       // High precission sample period
     /* Timing quality is a vendor specific value from 0 to 100% of maximum
@@ -228,7 +230,7 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
                 selections, unpack_data, verbose)) {
             msr_free(&msr);
             /* Only print error if offset is still within buffer length */
-            if (verbose && offset < buflen64)
+            if (offset < buflen64)
                 ms_log(2, "Error parsing record at offset %lld0",
                         (long long int) offset);
             continue;
@@ -255,15 +257,12 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
                     idListCurrent->dataquality == recordCurrent->record->dataquality) {
                 break;
             }
-            else {
-                idListCurrent = ((IDAddon *) idListCurrent->prvtptr)->previous;
-            }
+            idListCurrent = ((IDAddon *) idListCurrent->prvtptr)->previous;
         }
 
         // Create a new id list if one is needed.
         if (idListCurrent == NULL) {
             idListCurrent = lil_init();
-            //idListCurrent->prvtptr = (void *) (IDAddon *) calloc (1, sizeof(IDAddon));
             ((IDAddon *) idListCurrent->prvtptr)->previous = idListLast;
             if (idListLast != NULL) {
                 idListLast->next = idListCurrent;
