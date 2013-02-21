@@ -337,6 +337,8 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
             currentSegment = currentID.first.contents
         except ValueError:
             break
+        # structure to be able to reverse the reversed ids of readMSEEDBuffer
+        traces.append([])
         while True:
             header['sampling_rate'] = currentSegment.samprate
             header['starttime'] = \
@@ -372,7 +374,7 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
                 # XXX do nicer, such that it can work on windows, or include
                 # into lil
                 C.pythonapi.free(C.cast(currentSegment.prvtptr, C.POINTER(SegAddon)).contents.fieldbuf)
-            traces.append(Trace(header=header, data=data))
+            traces[-1].append(Trace(header=header, data=data))
             # A Null pointer access results in a ValueError
             try:
                 currentSegment = currentSegment.next.contents
@@ -385,7 +387,7 @@ def readMSEED(mseed_object, starttime=None, endtime=None, headonly=False,
 
     clibmseed.lil_free(lil)
     del lil
-    return Stream(traces=traces)
+    return Stream(traces=[tr for msid in reversed(traces) for tr in msid])
 
 
 def writeMSEED(stream, filename, encoding=None, reclen=None, byteorder=None,

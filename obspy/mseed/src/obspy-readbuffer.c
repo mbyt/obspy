@@ -61,10 +61,6 @@ typedef struct SegAddon_s {
     struct LinkedRecordList_s *lastRecord;  // Last item
 } SegAddon;
 
-typedef struct IDAddon_s {
-    struct MSTraceID_s *previous;          // Pointer to previous id
-} IDAddon;
-
 
 // Init function for the LinkedIDList
     // Allocate 0 initialized memory.
@@ -72,14 +68,11 @@ static MSTraceID *
 lil_init(void)
 {
     MSTraceID *lil = (MSTraceID *) malloc (sizeof(MSTraceID));
-
     if ( lil == NULL ) {
         ms_log (2, "lil_init(): Cannot allocate memory\n");
         return NULL;
     }
     memset (lil, 0, sizeof (MSTraceID));
-    lil->prvtptr = (void *) (IDAddon *) calloc (1, sizeof(IDAddon));
-    ((IDAddon *)lil->prvtptr)->previous = NULL;
     return lil;
 }
 
@@ -129,8 +122,6 @@ lil_free(MSTraceID * lil)
             }
             free((SegAddon *)lil->first->prvtptr);
             free(lil->first);
-            free((IDAddon *)lil->prvtptr);
-
         }
         free(lil);
         if (next == NULL) {
@@ -205,7 +196,6 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
     // Init all the pointers to NULL. Most compilers should do this anyway.
     MSTraceID * idListHead = NULL;
     MSTraceID * idListCurrent = NULL;
-    MSTraceID * idListLast = NULL;
     MSRecord *msr = NULL;
     MSTraceSeg * segmentCurrent = NULL;
     hptime_t lastgap = 0;
@@ -248,7 +238,7 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
         // Check if the ID of the record is already available and if not create a
         // new one.
         // Start with the last id as it is most likely to be the correct one.
-        idListCurrent = idListLast;
+        idListCurrent = idListHead;
         while (idListCurrent != NULL) {
             if (strcmp(idListCurrent->network, recordCurrent->record->network) == 0 &&
                     strcmp(idListCurrent->station, recordCurrent->record->station) == 0 &&
@@ -257,21 +247,14 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
                     idListCurrent->dataquality == recordCurrent->record->dataquality) {
                 break;
             }
-            idListCurrent = ((IDAddon *) idListCurrent->prvtptr)->previous;
+            idListCurrent = idListCurrent->next;
         }
 
         // Create a new id list if one is needed.
         if (idListCurrent == NULL) {
             idListCurrent = lil_init();
-            ((IDAddon *) idListCurrent->prvtptr)->previous = idListLast;
-            if (idListLast != NULL) {
-                idListLast->next = idListCurrent;
-            }
-            idListLast = idListCurrent;
-            if (idListHead == NULL) {
-                idListHead = idListCurrent;
-            }
-
+            idListCurrent->next = idListHead;
+            idListHead = idListCurrent;
             // Set the IdList attributes.
             strcpy(idListCurrent->network, recordCurrent->record->network);
             strcpy(idListCurrent->station, recordCurrent->record->station);
