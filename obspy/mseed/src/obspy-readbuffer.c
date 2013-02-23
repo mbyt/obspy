@@ -339,9 +339,6 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
         }
         // Otherwise create a new segment and add the current record.
         else {
-            // the last contiguous segment of the current can now be copied and
-            // the corresponding records can be freed already
-            copySegmentData(idListCurrent->last, unpack_data, allocData);
             if ( !(segmentCurrent = (MSTraceSeg *) calloc (1, sizeof(MSTraceSeg))) ) {
                 ms_log (2, "readMSEEDBuffer(): Error allocating memory\n");
                 return 0;
@@ -379,10 +376,16 @@ readMSEEDBuffer (char *mseed, const int buflen, Selections *selections,
         idListHead = lil_init();
         return idListHead;
     }
-    // copy data of all remaining segments
+    /* All records are now linked as list to the MSTraceSegments, we now copy them
+     * to one continuous data block per segment. This block is allocated once, which
+     * avoids reallocs. Avoiding reallocs has a huge performance impact on Microsoft Windows */
     idListCurrent = idListHead;
     while (idListCurrent != NULL) {
-        copySegmentData(idListCurrent->last, unpack_data, allocData);
+        segmentCurrent = idListCurrent->first;
+        while (segmentCurrent != NULL) {
+          copySegmentData(segmentCurrent, unpack_data, allocData);
+          segmentCurrent = segmentCurrent->next;
+        }
         idListCurrent = idListCurrent->next;
     }
 
