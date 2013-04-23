@@ -673,7 +673,6 @@ def writeMSEED(stream, filename, encoding=None, reclen=None, byteorder=None,
             # ctypes manual.
             if bool(ret_val) is False:
                 clibmseed.msr_free(C.pointer(msr))
-                del mstg, msr
                 raise Exception('Error in msr_addblockette')
         # Only use Blockette 100 if necessary.
         if use_blkt_100:
@@ -688,7 +687,6 @@ def writeMSEED(stream, filename, encoding=None, reclen=None, byteorder=None,
             # ctypes manual.
             if bool(ret_val) is False:
                 clibmseed.msr_free(C.pointer(msr))
-                del mstg, msr
                 raise Exception('Error in msr_addblockette')
 
         # Pack mstg into a MSEED file using the callback record_handler as
@@ -702,11 +700,10 @@ def writeMSEED(stream, filename, encoding=None, reclen=None, byteorder=None,
             warnings.warn(msg)
         if errcode == -1:
             clibmseed.msr_free(C.pointer(msr))
-            del mstg, msr
             raise Exception('Error in mst_packgroup')
         # Deallocate any allocated memory.
         clibmseed.msr_free(C.pointer(msr))
-        del mstg, msr
+        mstg.close()
     # Close if its a file handler.
     if isinstance(f, file):
         f.close()
@@ -729,6 +726,7 @@ class MSTG(object):
         """
         # Initialize MSTraceGroup
         mstg = clibmseed.mst_initgroup(None)
+        self._freed = False
         self.mstg = mstg
         # Set numtraces.
         mstg.contents.numtraces = 1
@@ -777,13 +775,17 @@ class MSTG(object):
         # address of the previously created memory area.
         C.memmove(chain.contents.datasamples, datptr, datasize)
 
-    def __del__(self):
+    def close(self):
         """
         Frees the MSTraceGroup struct. Therefore Python garbage collection can
         work with this class.
         """
         clibmseed.mst_freegroup(C.pointer(self.mstg))
-        del self.mstg
+        self._freed = True
+
+    def __del__(self):
+        if not self._freed:
+            self.close()
 
     def getMstg(self):
         """
