@@ -4,9 +4,16 @@ obspy.taup - Travel time calculation tool
 """
 import inspect
 import numpy as np
+import platform
 import os
 
-from obspy.lib import libtau
+_ltaup_name = 'libtau_%s_%s_py%s' % (
+    platform.system(),
+    platform.architecture()[0],
+    ''.join([str(i) for i in platform.python_version_tuple()[:2]])
+)
+
+libtau = __import__("obspy.lib.%s" % _ltaup_name, fromlist=["obspy", "lib"])
 
 # Directory of obspy.taup.
 _taup_dir = \
